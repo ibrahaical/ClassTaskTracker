@@ -12,37 +12,42 @@ class AuthController extends Controller
 {
     public function register(Request $request)
     {
+        $email = $request->input('email');
+        if (is_string($email)) {
+            $request->merge(['email' => strtolower(trim($email))]);
+        }
+
         $validator = Validator::make($request->all(), [
-            'name'       => 'required|string|max:100',
-            'email'      => 'required|email|unique:users,email',
-            'password'   => 'required|string|min:6',
-            'role'       => 'required|in:teacher,student',
+            'name' => 'required|string|max:100',
+            'email' => 'required|email|unique:users,email',
+            'password' => 'required|string|min:6',
             'class_name' => 'nullable|string|max:50',
+            'role' => 'prohibited',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Validasi gagal.',
-                'errors'  => $validator->errors(),
+                'errors' => $validator->errors(),
             ], 422);
         }
 
         $user = User::create([
-            'name'       => $request->name,
-            'email'      => $request->email,
-            'password'   => Hash::make($request->password),
-            'role'       => $request->role,
+            'name' => $request->name,
+            'email' => $request->email,
+            'password' => Hash::make($request->password),
+            'role' => 'student',
             'class_name' => $request->class_name ?? 'XII RPL 1',
         ]);
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Registrasi berhasil.',
-            'data'    => [
-                'user'  => $user,
+            'data' => [
+                'user' => $user,
                 'token' => $token,
             ],
         ], 201);
@@ -50,24 +55,29 @@ class AuthController extends Controller
 
     public function login(Request $request)
     {
+        $email = $request->input('email');
+        if (is_string($email)) {
+            $request->merge(['email' => strtolower(trim($email))]);
+        }
+
         $validator = Validator::make($request->all(), [
-            'email'    => 'required|email',
+            'email' => 'required|email',
             'password' => 'required|string',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Input login tidak valid.',
-                'errors'  => $validator->errors(),
+                'errors' => $validator->errors(),
             ], 422);
         }
 
         $user = User::where('email', $request->email)->first();
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
+        if (! $user || ! Hash::check($request->password, $user->password)) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Email atau password salah.',
             ], 401);
         }
@@ -75,10 +85,10 @@ class AuthController extends Controller
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Login berhasil.',
-            'data'    => [
-                'user'  => $user,
+            'data' => [
+                'user' => $user,
                 'token' => $token,
             ],
         ], 200);
@@ -88,7 +98,8 @@ class AuthController extends Controller
     {
         return response()->json([
             'status' => 'success',
-            'data'   => $request->user(),
+            'message' => 'Data pengguna berhasil dimuat.',
+            'data' => $request->user(),
         ], 200);
     }
 
@@ -97,7 +108,7 @@ class AuthController extends Controller
         $request->user()->currentAccessToken()->delete();
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Logout berhasil.',
         ], 200);
     }

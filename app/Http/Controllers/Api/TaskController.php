@@ -14,15 +14,29 @@ class TaskController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        $search = $request->query('search');
-        $status = $request->query('status'); // 'completed' | 'pending' | ''
+        $validator = Validator::make($request->query(), [
+            'search' => 'nullable|string|max:255',
+            'status' => 'nullable|in:completed,pending',
+            'page' => 'nullable|integer|min:1',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Parameter pencarian tidak valid.',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $search = trim((string) $request->query('search', ''));
+        $status = $request->query('status');
 
         $query = Task::with('creator:id,name')
             ->withCount('completions');
 
         // Pencarian berdasarkan judul
-        if (!empty($search)) {
-            $query->where('title', 'like', '%' . $search . '%');
+        if (! empty($search)) {
+            $query->where('title', 'like', '%'.$search.'%');
         }
 
         // Filter berdasarkan status selesai / belum
@@ -60,12 +74,14 @@ class TaskController extends Controller
             $task->is_completed = $user->role === 'student'
                 ? in_array($task->id, $completedTaskIds)
                 : ($task->completions_count > 0);
+
             return $task;
         });
 
         return response()->json([
             'status' => 'success',
-            'data'   => $tasks,
+            'message' => 'Daftar tugas berhasil dimuat.',
+            'data' => $tasks,
         ], 200);
     }
 
@@ -74,38 +90,35 @@ class TaskController extends Controller
     {
         if ($request->user()->role !== 'teacher') {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Forbidden: Hanya guru yang boleh membuat tugas.',
             ], 403);
         }
 
         $validator = Validator::make($request->all(), [
-            'title'       => 'required|string|max:255',
+            'title' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'due_date'    => 'required|date',
-            'class_name'  => 'required|string|max:50',
+            'due_date' => 'required|date',
+            'class_name' => 'required|string|max:50',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Validasi input gagal.',
-                'errors'  => $validator->errors(),
+                'errors' => $validator->errors(),
             ], 422);
         }
 
         $task = Task::create([
-            'title'       => $request->title,
-            'description' => $request->description,
-            'due_date'    => $request->due_date,
-            'class_name'  => $request->class_name,
-            'created_by'  => $request->user()->id,
+            ...$validator->validated(),
+            'created_by' => $request->user()->id,
         ]);
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Tugas berhasil dibuat.',
-            'data'    => $task,
+            'data' => $task,
         ], 201);
     }
 
@@ -114,40 +127,40 @@ class TaskController extends Controller
     {
         if ($request->user()->role !== 'teacher') {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Forbidden: Siswa tidak diizinkan mengubah tugas.',
             ], 403);
         }
 
         $task = Task::find($id);
-        if (!$task) {
+        if (! $task) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Tugas tidak ditemukan.',
             ], 404);
         }
 
         $validator = Validator::make($request->all(), [
-            'title'       => 'required|string|max:255',
+            'title' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'due_date'    => 'required|date',
-            'class_name'  => 'required|string|max:50',
+            'due_date' => 'required|date',
+            'class_name' => 'required|string|max:50',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Validasi input gagal.',
-                'errors'  => $validator->errors(),
+                'errors' => $validator->errors(),
             ], 422);
         }
 
-        $task->update($request->only(['title', 'description', 'due_date', 'class_name']));
+        $task->update($validator->validated());
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Tugas berhasil diperbarui.',
-            'data'    => $task,
+            'data' => $task,
         ], 200);
     }
 
@@ -156,15 +169,15 @@ class TaskController extends Controller
     {
         if ($request->user()->role !== 'teacher') {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Forbidden: Siswa tidak diizinkan menghapus tugas.',
             ], 403);
         }
 
         $task = Task::find($id);
-        if (!$task) {
+        if (! $task) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Tugas tidak ditemukan.',
             ], 404);
         }
@@ -172,7 +185,7 @@ class TaskController extends Controller
         $task->delete();
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Tugas berhasil dihapus.',
         ], 200);
     }
@@ -184,15 +197,15 @@ class TaskController extends Controller
 
         if ($user->role !== 'student') {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Forbidden: Hanya siswa yang dapat menandai tugas selesai.',
             ], 403);
         }
 
         $task = Task::find($id);
-        if (!$task) {
+        if (! $task) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Tugas tidak ditemukan.',
             ], 404);
         }
@@ -207,8 +220,8 @@ class TaskController extends Controller
             $msg = 'Status tugas diubah menjadi belum selesai.';
         } else {
             TaskCompletion::create([
-                'task_id'      => $task->id,
-                'student_id'   => $user->id,
+                'task_id' => $task->id,
+                'student_id' => $user->id,
                 'completed_at' => now(),
             ]);
             $isCompleted = true;
@@ -216,10 +229,10 @@ class TaskController extends Controller
         }
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => $msg,
-            'data'    => [
-                'task_id'      => $task->id,
+            'data' => [
+                'task_id' => $task->id,
                 'is_completed' => $isCompleted,
             ],
         ], 200);

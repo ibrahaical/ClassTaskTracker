@@ -15,8 +15,8 @@ return new class extends Migration
             $table->id();
             $table->string('title');
             $table->text('description')->nullable();
-            $table->date('due_date');
-            $table->string('class_name', 50);
+            $table->date('due_date')->index();
+            $table->string('class_name', 50)->index();
             $table->foreignId('created_by')->constrained('users')->cascadeOnDelete();
             $table->timestamps();
         });

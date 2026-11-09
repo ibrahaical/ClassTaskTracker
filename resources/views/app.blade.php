@@ -71,18 +71,9 @@
                     <label class="block text-xs font-semibold uppercase text-slate-600 mb-1">Password (Min. 6 karakter)</label>
                     <input type="password" id="reg-password" required class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm">
                 </div>
-                <div class="grid grid-cols-2 gap-2">
-                    <div>
-                        <label class="block text-xs font-semibold uppercase text-slate-600 mb-1">Peran</label>
-                        <select id="reg-role" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
-                            <option value="student">Siswa</option>
-                            <option value="teacher">Guru</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold uppercase text-slate-600 mb-1">Kelas</label>
-                        <input type="text" id="reg-class" value="XII RPL 1" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm">
-                    </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-600 mb-1">Kelas</label>
+                    <input type="text" id="reg-class" value="XII RPL 1" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm">
                 </div>
                 <button type="submit" id="btn-register" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 rounded-lg text-sm transition">
                     Daftar Akun Baru
@@ -165,6 +156,19 @@
         let currentUser = null;
         let authToken = localStorage.getItem('token') || null;
         let currentPage = 1;
+        let loadedTasks = [];
+
+        function escapeHtml(value) {
+            const entities = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;',
+            };
+
+            return String(value ?? '').replace(/[&<>"']/g, character => entities[character]);
+        }
 
         function showAlert(message, type = 'error') {
             const box = document.getElementById('alert-box');
@@ -203,6 +207,19 @@
                 headers
             });
             const data = await response.json();
+            const requestPath = new URL(url, window.location.origin).pathname;
+            if (response.status === 401 && requestPath !== '/api/login') {
+                localStorage.removeItem('token');
+                authToken = null;
+                currentUser = null;
+                loadedTasks = [];
+                document.getElementById('auth-section').classList.remove('hidden');
+                document.getElementById('dashboard-section').classList.add('hidden');
+                document.getElementById('nav-user').classList.add('hidden');
+                document.getElementById('nav-user').classList.remove('flex');
+                throw new Error('Sesi telah berakhir. Silakan login kembali.');
+            }
+
             if (!response.ok) {
                 const errMsg = data.errors ?
                     Object.values(data.errors).flat().join(' ') :
@@ -250,7 +267,6 @@
                         name: document.getElementById('reg-name').value,
                         email: document.getElementById('reg-email').value,
                         password: document.getElementById('reg-password').value,
-                        role: document.getElementById('reg-role').value,
                         class_name: document.getElementById('reg-class').value,
                     })
                 });
@@ -272,7 +288,9 @@
                 await apiFetch('/api/logout', {
                     method: 'POST'
                 });
-            } catch (_) {}
+            } catch (err) {
+                showAlert(err.message, 'error');
+            }
             localStorage.removeItem('token');
             authToken = null;
             currentUser = null;
@@ -323,11 +341,14 @@
         function renderTaskCards(tasks) {
             const listEl = document.getElementById('task-list');
             if (!tasks.length) {
+                loadedTasks = [];
                 listEl.innerHTML = `<div class="col-span-full bg-white p-8 rounded-xl border border-slate-200 text-center text-sm text-slate-500">Tidak ada tugas yang sesuai filter pencarian.</div>`;
                 return;
             }
 
+            loadedTasks = tasks;
             listEl.innerHTML = tasks.map(t => {
+                const taskId = Number(t.id);
                 const badgeClass = t.is_completed ?
                     'bg-emerald-100 text-emerald-700 border-emerald-300' :
                     'bg-amber-100 text-amber-700 border-amber-300';
@@ -335,10 +356,10 @@
 
                 const actionsHtml = currentUser.role === 'teacher' ?
                     `<div class="flex gap-2">
-                        <button onclick='openTaskModal(${JSON.stringify(t)})' class="text-xs px-3 py-1.5 rounded bg-slate-100 hover:bg-slate-200 font-semibold text-slate-700">Edit</button>
-                        <button onclick="handleDeleteTask(${t.id})" class="text-xs px-3 py-1.5 rounded bg-red-50 hover:bg-red-100 font-semibold text-red-600">Hapus</button>
+                        <button onclick="openEditModalById(${taskId})" class="text-xs px-3 py-1.5 rounded bg-slate-100 hover:bg-slate-200 font-semibold text-slate-700">Edit</button>
+                        <button onclick="handleDeleteTask(${taskId})" class="text-xs px-3 py-1.5 rounded bg-red-50 hover:bg-red-100 font-semibold text-red-600">Hapus</button>
                        </div>` :
-                    `<button onclick="handleToggleComplete(${t.id})" class="text-xs px-3 py-1.5 rounded font-semibold transition ${
+                    `<button onclick="handleToggleComplete(${taskId})" class="text-xs px-3 py-1.5 rounded font-semibold transition ${
                         t.is_completed
                             ? 'bg-slate-200 hover:bg-slate-300 text-slate-700'
                             : 'bg-emerald-600 hover:bg-emerald-700 text-white'
@@ -350,16 +371,16 @@
                     <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between gap-3">
                         <div class="space-y-2">
                             <div class="flex items-start justify-between gap-2">
-                                <span class="text-xs font-bold px-2.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">${t.class_name}</span>
+                                <span class="text-xs font-bold px-2.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">${escapeHtml(t.class_name)}</span>
                                 <span class="text-xs font-semibold px-2.5 py-0.5 rounded border ${badgeClass}">${badgeText}</span>
                             </div>
-                            <h3 class="font-bold text-slate-800 text-base">${t.title}</h3>
-                            <p class="text-xs text-slate-600 leading-relaxed">${t.description || 'Tidak ada deskripsi tambahan.'}</p>
+                            <h3 class="font-bold text-slate-800 text-base">${escapeHtml(t.title)}</h3>
+                            <p class="text-xs text-slate-600 leading-relaxed">${escapeHtml(t.description || 'Tidak ada deskripsi tambahan.')}</p>
                         </div>
                         <div class="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
                             <div>
-                                <p>Tenggat: <b class="text-slate-700">${t.due_date}</b></p>
-                                <p>Diselesaikan: <b>${t.completions_count} siswa</b></p>
+                                <p>Tenggat: <b class="text-slate-700">${escapeHtml(t.due_date)}</b></p>
+                                <p>Diselesaikan: <b>${escapeHtml(t.completions_count)} siswa</b></p>
                             </div>
                             ${actionsHtml}
                         </div>
@@ -371,12 +392,22 @@
         function renderPagination(meta) {
             const bar = document.getElementById('pagination-bar');
             bar.innerHTML = `
-                <span>Halaman <b>${meta.current_page}</b> dari <b>${meta.last_page}</b> (Total ${meta.total} tugas)</span>
+                <span>Halaman <b>${escapeHtml(meta.current_page)}</b> dari <b>${escapeHtml(meta.last_page)}</b> (Total ${escapeHtml(meta.total)} tugas)</span>
                 <div class="flex gap-2">
-                    <button ${!meta.prev_page_url ? 'disabled' : ''} onclick="fetchTasks(${meta.current_page - 1})" class="px-3 py-1 rounded border border-slate-300 disabled:opacity-40 font-semibold">Sebelumnya</button>
-                    <button ${!meta.next_page_url ? 'disabled' : ''} onclick="fetchTasks(${meta.current_page + 1})" class="px-3 py-1 rounded border border-slate-300 disabled:opacity-40 font-semibold">Berikutnya</button>
+                    <button ${!meta.prev_page_url ? 'disabled' : ''} onclick="fetchTasks(${Number(meta.current_page) - 1})" class="px-3 py-1 rounded border border-slate-300 disabled:opacity-40 font-semibold">Sebelumnya</button>
+                    <button ${!meta.next_page_url ? 'disabled' : ''} onclick="fetchTasks(${Number(meta.current_page) + 1})" class="px-3 py-1 rounded border border-slate-300 disabled:opacity-40 font-semibold">Berikutnya</button>
                 </div>
             `;
+        }
+
+        function openEditModalById(id) {
+            const task = loadedTasks.find(item => Number(item.id) === Number(id));
+            if (!task) {
+                showAlert('Data tugas tidak ditemukan. Muat ulang daftar tugas.', 'error');
+                return;
+            }
+
+            openTaskModal(task);
         }
 
         function openTaskModal(task = null) {
@@ -463,9 +494,8 @@
                 const res = await apiFetch('/api/me');
                 currentUser = res.data;
                 renderDashboardState();
-            } catch (_) {
-                localStorage.removeItem('token');
-                authToken = null;
+            } catch (err) {
+                showAlert(err.message, 'error');
             }
         })();
     </script>

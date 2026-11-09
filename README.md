@@ -20,3 +20,28 @@ _(Catatan Penggunaan AI: AI digunakan sebagai referensi penyusunan struktur boil
     git clone [https://github.com/username-anda/class-task-tracker.git](https://github.com/username-anda/class-task-tracker.git)
     cd class-task-tracker
     ```
+
+2. **Pasang dependency dan siapkan konfigurasi:**
+    ```bash
+    composer install
+    cp .env.example .env
+    php artisan key:generate
+    ```
+    Buat database MySQL `class_task_tracker`, lalu sesuaikan `DB_*` di `.env`.
+
+3. **Jalankan migrasi dan data contoh:**
+    ```bash
+    php artisan migrate:fresh --seed
+    ```
+    Akun demo: `guru@schooltech.id` dan `siswa@schooltech.id`, keduanya memakai password `password123`.
+
+Pendaftaran publik hanya membuat akun siswa. Akun guru dibuat lewat seeder atau proses administrasi tepercaya.
+
+## Endpoint API
+
+- `POST /api/register`, `POST /api/login`, `GET /api/me`, `POST /api/logout`
+- `GET /api/tasks?search=&status=&page=`
+- `POST /api/tasks`, `PUT /api/tasks/{id}`, `DELETE /api/tasks/{id}` (guru)
+- `PATCH /api/tasks/{id}/toggle-complete` (siswa)
+
+Jalankan pengujian dengan `php artisan test`.

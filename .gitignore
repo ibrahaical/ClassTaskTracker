@@ -3,6 +3,10 @@
 .env
 .env.backup
 .env.production
+# Local AI tooling and generated guidance
+/.claude/
+/.mcp.json
+/boost.json
 .phpactor.json
 .phpunit.result.cache
 /.codex
