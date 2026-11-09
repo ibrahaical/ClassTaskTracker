@@ -16,17 +16,20 @@ _(Catatan Penggunaan AI: AI digunakan sebagai referensi penyusunan struktur boil
 ## Cara Menjalankan Aplikasi dari Nol (Langkah demi Langkah)
 
 1. **Clone repositori ini:**
+
     ```bash
-    git clone [https://github.com/username-anda/class-task-tracker.git](https://github.com/username-anda/class-task-tracker.git)
+    git clone https://github.com/ibrahaical/ClassTaskTracker(https://github.com/ibrahaical/ClassTaskTracker)
     cd class-task-tracker
     ```
 
 2. **Pasang dependency dan siapkan konfigurasi:**
+
     ```bash
     composer install
     cp .env.example .env
     php artisan key:generate
     ```
+
     Buat database MySQL `class_task_tracker`, lalu sesuaikan `DB_*` di `.env`.
 
 3. **Jalankan migrasi dan data contoh:**
