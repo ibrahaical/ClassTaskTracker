@@ -22,7 +22,7 @@ class AuthController extends Controller
             'email' => 'required|email|unique:users,email',
             'password' => 'required|string|min:6',
             'class_name' => 'nullable|string|max:50',
-            'role' => 'prohibited',
+            'role' => 'required|in:teacher,student',
         ]);
 
         if ($validator->fails()) {
@@ -37,7 +37,7 @@ class AuthController extends Controller
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
-            'role' => 'student',
+            'role' => $request->role,
             'class_name' => $request->class_name ?? 'XII RPL 1',
         ]);
 

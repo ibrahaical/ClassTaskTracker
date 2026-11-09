@@ -15,20 +15,22 @@ class TaskApiTest extends TestCase
 
     public function test_user_can_register_and_login_to_receive_a_bearer_token(): void
     {
-        $this->postJson('/api/register', [
-            'name' => 'Calon Guru',
+        $teacherRegistration = $this->postJson('/api/register', [
+            'name' => 'Guru Baru',
             'email' => 'guru-baru@schooltech.id',
             'password' => 'password123',
             'role' => 'teacher',
-        ])->assertUnprocessable()
-            ->assertJsonStructure(['status', 'message', 'errors']);
+        ]);
 
-        $this->assertDatabaseMissing('users', ['email' => 'guru-baru@schooltech.id']);
+        $teacherRegistration->assertCreated()
+            ->assertJsonPath('data.user.role', 'teacher')
+            ->assertJsonStructure(['status', 'message', 'data' => ['user', 'token']]);
 
         $registration = $this->postJson('/api/register', [
             'name' => 'Siswa Baru',
             'email' => '  Student@SchoolTech.ID ',
             'password' => 'password123',
+            'role' => 'student',
             'class_name' => 'XII RPL 1',
         ]);
 
@@ -46,6 +48,16 @@ class TaskApiTest extends TestCase
         ])->assertOk()
             ->assertJsonStructure(['status', 'message', 'data' => ['user', 'token']])
             ->assertJsonPath('data.user.role', 'student');
+
+        $this->postJson('/api/register', [
+            'name' => 'Role Tidak Valid',
+            'email' => 'invalid-role@schooltech.id',
+            'password' => 'password123',
+            'role' => 'admin',
+        ])->assertUnprocessable()
+            ->assertJsonStructure(['status', 'message', 'errors']);
+
+        $this->assertDatabaseMissing('users', ['email' => 'invalid-role@schooltech.id']);
     }
 
     public function test_unauthenticated_user_receives_consistent_401_json(): void
